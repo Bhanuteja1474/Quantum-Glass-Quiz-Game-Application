@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SkillCraft · Quantum Glass Quiz</title>
+  <!--
+    1000x Advanced, Premium Single‑File App
+    - Glassmorphism + neon accents + gradient borders
+    - Particle field + dynamic orbs + depth shadows
+    - Timer with radial progress, streak multiplier, confetti
+    - Keyboard navigation, ARIA, reduced‑motion safe
+    - Dark mode, settings drawer, category & difficulty
+    - Review modal, localStorage high score, sound (optional)
+  -->
+  <style>
+    :root {
+      /* === Premium Palette (Light) === */
+      --bg: #F8FAFC;                 /* Arctic Mist */
+      --surface: #FFFFFF;            /* Frost White */
+      --ink-1: #0F172A;              /* Deep Space */
+      --ink-2: #64748B;              /* Slate Ash */
+      --brand-1: #1E40AF;            /* Royal Indigo */
+      --brand-2: #06B6D4;            /* Electric Cyan */
+      --ok: #22C55E;                 /* Neo Green */
+      --warn: #FB7185;               /* Pulse Coral */
+
+      /* Glass */
+      --glass: rgba(255,255,255,.18);
+      --stroke: rgba(255,255,255,.38);
+      --blur: 18px;
+
+      /* Depth */
+      --shadow-1: 0 10px 30px rgba(15,23,42,.10);
+      --shadow-2: 0 24px 80px rgba(6,182,212,.18);
+
+      /* Radius & Motion */
+      --r-xl: 28px; --r-lg: 20px; --r-md: 14px; --r-sm: 10px;
+      --dur-fast: 140ms; --dur: 240ms; --dur-slow: 520ms;
+      --ease: cubic-bezier(.22,.61,.36,1);
+
+      /* Layout */
+      --w: min(980px, 92vw);
+      --header-h: 64px;
+
+      /* Timer */
+      --timer-size: 48px; --timer-stroke: 5.5;
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #0F172A;                 /* Deep Navy */
+      --surface: #1E293B;            /* Charcoal Blue */
+      --ink-1: #E2E8F0;              /* Text Primary */
+      --ink-2: #94A3B8;              /* Text Secondary */
+      --brand-1: #1E40AF;
+      --brand-2: #38BDF8;            /* Sky Glow */
+      --glass: rgba(30,41,59,.38);
+      --stroke: rgba(148,163,184,.18);
+      --shadow-1: 0 10px 30px rgba(0,0,0,.38);
+      --shadow-2: 0 24px 80px rgba(0,0,0,.6);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Inter", "Poppins", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color: var(--ink-1);
+      background: radial-gradient(1200px 800px at 8% 12%, color-mix(in oklab, var(--brand-2) 18%, transparent), transparent 60%),
+                  radial-gradient(1200px 800px at 92% 8%, color-mix(in oklab, var(--brand-1) 22%, transparent), transparent 60%),
+                  var(--bg);
+      overflow-x: hidden;
+    }
+
+    /* Particle canvas */
+    canvas.bg { position: fixed; inset: 0; z-index: -2; filter: blur(0.2px); opacity: .55; }
+
+    /* Animated orbs */
+    .orb { position: fixed; border-radius: 1000px; filter: blur(48px); z-index: -1; opacity: .6; animation: float var(--dur-slow) ease-in-out infinite alternate; }
+    .orb.a { width: 520px; height: 520px; left: -120px; top: 14vh; background: var(--brand-2); }
+    .orb.b { width: 640px; height: 640px; right: -160px; top: 6vh; background: var(--brand-1); animation-duration: 8s; }
+    .orb.c { width: 380px; height: 380px; left: 22vw; bottom: -120px; background: var(--ok); opacity: .32; animation-duration: 10s; }
+    @keyframes float { from { transform: translateY(-8px) } to { transform: translateY(8px) } }
+
+    /* Container */
+    .wrap { width: var(--w); margin-inline: auto; padding: 24px; display: grid; gap: 18px; }
+
+    header {
+      height: var(--header-h); display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; letter-spacing: .2px; }
+    .mark { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); box-shadow: 0 8px 22px color-mix(in oklab, var(--brand-2) 35%, transparent), inset 0 0 0 1px rgba(255,255,255,.22); }
+    .subtitle { color: var(--ink-2); font-weight: 600; font-size: .9rem; }
+
+    .actions { display: flex; align-items: center; gap: 10px; }
+
+    .btn { position: relative; appearance: none; border: 0; border-radius: 16px; padding: 12px 16px; font-weight: 700; cursor: pointer; transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); outline: none; }
+    .btn:active { transform: translateY(0) scale(.99); }
+    .btn-primary { color: #fff; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); box-shadow: 0 10px 24px color-mix(in oklab, var(--brand-2) 30%, transparent), inset 0 0 0 1px rgba(255,255,255,.22); }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 18px 36px color-mix(in oklab, var(--brand-2) 40%, transparent); }
+    .btn-ghost { background: transparent; color: var(--ink-1); border: 1px solid rgba(148,163,184,.28); backdrop-filter: blur(6px); }
+    .btn-ghost:hover { background: rgba(148,163,184,.14); }
+
+    .toggle { inline-size: 60px; block-size: 34px; border-radius: 999px; background: linear-gradient(135deg, var(--brand-1), var(--brand-2)); position: relative; border: none; padding: 0; cursor: pointer; box-shadow: 0 8px 18px color-mix(in oklab, var(--brand-2) 30%, transparent); }
+    .toggle::after { content: ""; position: absolute; inset: 4px; width: 26px; height: 26px; border-radius: 999px; background: var(--surface); transform: translateX(0); transition: transform var(--dur-fast) var(--ease), background var(--dur-fast); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--stroke); }
+    [data-theme="dark"] .toggle::after { transform: translateX(26px); }
+
+    /* Glass card */
+    .card { background: var(--glass); border: 1px solid var(--stroke); backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur)); border-radius: var(--r-xl); box-shadow: var(--shadow-2); }
+
+    .hero { position: relative; overflow: hidden; padding: 28px; }
+    .hero h1 { margin: 0 0 6px; font-size: clamp(24px, 3vw, 40px); line-height: 1.15; }
+    .hero .lead { color: var(--ink-2); font-size: clamp(14px, 1.6vw, 18px); }
+    .shine { position: absolute; inset: -1px; background: radial-gradient(600px 140px at 10% -10%, rgba(255,255,255,.35), transparent 40%), radial-gradient(600px 140px at 90% -10%, rgba(255,255,255,.25), transparent 40%); pointer-events: none; mix-blend-mode: overlay; }
+
+    .grid { display: grid; gap: 18px; grid-template-columns: 1.2fr .8fr; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    /* Quiz area */
+    .quiz { padding: 22px; display: grid; gap: 16px; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+    .question { font-size: 1.1rem; font-weight: 700; color: var(--ink-1); min-height: 52px; }
+    .options { display: grid; gap: 12px; }
+    .option { border-radius: var(--r-lg); padding: 14px 16px; text-align: left; background: color-mix(in oklab, var(--surface) 78%, transparent); border: 1px solid rgba(148,163,184,.28); color: var(--ink-1); box-shadow: var(--shadow-1); transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease); cursor: pointer; }
+    .option:hover { transform: translateY(-1px); box-shadow: 0 16px 34px color-mix(in oklab, var(--brand-2) 22%, transparent); background: color-mix(in oklab, var(--surface) 88%, transparent); }
+    .option:focus-visible { outline: 3px solid color-mix(in oklab, var(--brand-2) 60%, transparent); outline-offset: 2px; }
+    .option.correct { background: color-mix(in oklab, var(--ok) 20%, var(--surface)); border-color: color-mix(in oklab, var(--ok) 60%, transparent); }
+    .option.wrong { background: color-mix(in oklab, var(--warn) 20%, var(--surface)); border-color: color-mix(in oklab, var(--warn) 60%, transparent); }
+
+    .progress { position: relative; height: 10px; border-radius: 999px; background: rgba(148,163,184,.28); overflow: hidden; flex: 1; }
+    .progress > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--brand-1), var(--brand-2)); transition: width var(--dur) var(--ease); }
+
+    /* Timer circular */
+    .timer { position: relative; width: var(--timer-size); height: var(--timer-size); }
+    .timer svg { transform: rotate(-90deg); }
+    .timer .label { position: absolute; inset: 0; display: grid; place-items: center; font-size: .8rem; font-weight: 800; }
+    .timer .track { stroke: rgba(148,163,184,.28); }
+    .timer .bar { stroke: url(#grad); transition: stroke-dashoffset 1s linear; }
+
+    .meta { color: var(--ink-2); font-weight: 700; }
+
+    /* Sidebar card */
+    .panel { padding: 18px; display: grid; gap: 14px; }
+
+    .stat { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 14px; border-radius: var(--r-lg); background: color-mix(in oklab, var(--surface) 76%, transparent); border: 1px solid rgba(148,163,184,.24); }
+
+    .pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; border: 1px solid rgba(148,163,184,.26); background: color-mix(in oklab, var(--surface) 70%, transparent); font-weight: 700; }
+
+    /* Score modal */
+    dialog { border: 0; border-radius: var(--r-xl); width: min(720px, 92vw); background: var(--glass); border: 1px solid var(--stroke); backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur)); box-shadow: var(--shadow-2); color: var(--ink-1); }
+    dialog::backdrop { background: rgba(0,0,0,.35); backdrop-filter: blur(2px); }
+    .modal-body { padding: 18px 20px 22px; display: grid; gap: 12px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 0 20px 20px; }
+
+    footer { text-align: center; color: var(--ink-2); font-size: .9rem; padding: 10px 0 18px; }
+
+    /* Toast */
+    .toast { position: fixed; right: 18px; bottom: 18px; padding: 12px 14px; border-radius: var(--r-md); background: color-mix(in oklab, var(--surface) 86%, transparent); border: 1px solid rgba(148,163,184,.26); box-shadow: var(--shadow-1); opacity: 0; transform: translateY(10px); transition: all var(--dur) var(--ease); z-index: 100; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .orb, .btn, .option, .toast { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <canvas class="bg" id="bg"></canvas>
+  <div class="orb a"></div>
+  <div class="orb b"></div>
+  <div class="orb c"></div>
+
+  <div class="wrap" role="main">
+    <header>
+      <div class="brand" aria-label="SkillCraft Technology">
+        <div class="mark" aria-hidden="true"></div>
+        <div>
+          <div>SkillCraft Technology</div>
+          <div class="subtitle">Quantum Glass Quiz Experience</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-ghost btn" id="settingsBtn" aria-haspopup="dialog" aria-controls="settingsDialog">Settings</button>
+        <button class="toggle" id="themeToggle" aria-label="Toggle dark mode"></button>
+      </div>
+    </header>
+
+    <section class="hero card">
+      <div class="shine" aria-hidden="true"></div>
+      <h1>Master the Web — with Elegance & Flow</h1>
+      <p class="lead">Futuristic, elegant, human‑centric quiz built with premium glassmorphism, micro‑interactions, and first‑class accessibility.</p>
+    </section>
+
+    <section class="grid">
+      <section class="quiz card" id="quizCard" aria-live="polite">
+        <div class="toolbar">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <!-- Timer -->
+            <div class="timer" title="Time remaining">
+              <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true">
+                <defs>
+                  <linearGradient id="grad" x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0%" stop-color="var(--brand-1)"/>
+                    <stop offset="100%" stop-color="var(--brand-2)"/>
+                  </linearGradient>
+                </defs>
+                <circle class="track" cx="24" cy="24" r="20" fill="none" stroke-width="5.5" stroke-linecap="round"></circle>
+                <circle class="bar" id="timerBar" cx="24" cy="24" r="20" fill="none" stroke-width="5.5" stroke-linecap="round" stroke-dasharray="125.6" stroke-dashoffset="0"></circle>
+              </svg>
+              <div class="label" id="timeLeft">15</div>
+            </div>
+            <div class="pill" id="difficultyPill">Difficulty: <span id="difficultyLabel">Normal</span></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+            <div class="meta"><span id="qIndex">1</span>/<span id="qTotal">5</span></div>
+            <button class="btn btn-primary" id="nextBtn">Next</button>
+          </div>
+        </div>
+
+        <div class="question" id="question">Loading…</div>
+        <div class="options" id="options"></div>
+      </section>
+
+      <aside class="panel card">
+        <div class="stat"><strong>Score</strong><span id="scoreVal">0</span></div>
+        <div class="stat"><strong>Streak</strong><span id="streakVal">0×</span></div>
+        <div class="stat"><strong>High Score</strong><span id="bestVal">0</span></div>
+        <div class="stat"><strong>Category</strong><span id="categoryVal">All</span></div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-primary" id="restartBtn">Restart</button>
+          <button class="btn btn-ghost" id="shuffleBtn">Shuffle</button>
+          <button class="btn btn-ghost" id="reviewBtn">Review</button>
+        </div>
+      </aside>
+    </section>
+
+    <footer>SkillCraft · Task 03 (Alternative) · Premium Quantum Glass · Accessibility‑first</footer>
+  </div>
+
+  <!-- Review Modal -->
+  <dialog id="reviewDialog" aria-label="Answer review">
+    <div class="modal-body" id="reviewList"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeReview">Close</button>
+    </div>
+  </dialog>
+
+  <!-- Settings Modal -->
+  <dialog id="settingsDialog" aria-label="Settings">
+    <div class="modal-body">
+      <h3 style="margin:0 0 8px;">Settings</h3>
+      <div style="display:grid; gap:12px;">
+        <label style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <span>Category</span>
+          <select id="categorySelect" style="padding:10px 12px; border-radius:12px; border:1px solid rgba(148,163,184,.28); background: color-mix(in oklab, var(--surface) 86%, transparent); color: var(--ink-1);">
+            <option value="all">All</option>
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+            <option value="js">JavaScript</option>
+          </select>
+        </label>
+        <label style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <span>Difficulty</span>
+          <select id="difficultySelect" style="padding:10px 12px; border-radius:12px; border:1px solid rgba(148,163,184,.28); background: color-mix(in oklab, var(--surface) 86%, transparent); color: var(--ink-1);">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <label style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <span>Per‑question time</span>
+          <input id="timeInput" type="number" min="5" max="90" step="5" value="15" style="padding:10px 12px; border-radius:12px; border:1px solid rgba(148,163,184,.28); background: color-mix(in oklab, var(--surface) 86%, transparent); color: var(--ink-1); width:110px;">
+        </label>
+        <label style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <span>Sounds</span>
+          <input id="soundToggle" type="checkbox" checked>
+        </label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelSettings">Cancel</button>
+      <button class="btn btn-primary" id="saveSettings">Save</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // =================== Particle Background ===================
+    (function particles(){
+      const c = document.getElementById('bg');
+      const ctx = c.getContext('2d');
+      function resize(){ c.width = innerWidth; c.height = innerHeight; }
+      resize(); addEventListener('resize', resize);
+      const N = 70; const pts = Array.from({length:N}, () => ({
+        x: Math.random()*c.width, y: Math.random()*c.height,
+        vx: (Math.random()-.5)*0.5, vy: (Math.random()-.5)*0.5,
+        r: Math.random()*1.6+0.6
+      }));
+      function step(){
+        ctx.clearRect(0,0,c.width,c.height);
+        for(const p of pts){
+          p.x+=p.vx; p.y+=p.vy; if(p.x<0||p.x>c.width) p.vx*=-1; if(p.y<0||p.y>c.height) p.vy*=-1;
+        }
+        for(const p of pts){
+          ctx.beginPath();
+          ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+          const g = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
+          g.addColorStop(0, getComputedStyle(document.documentElement).getPropertyValue('--brand-2').trim());
+          g.addColorStop(1, 'transparent');
+          ctx.fillStyle = g; ctx.fill();
+        }
+        for(let i=0;i<N;i++) for(let j=i+1;j<N;j++){
+          const a=pts[i], b=pts[j];
+          const dx=a.x-b.x, dy=a.y-b.y, d=Math.hypot(dx,dy);
+          if(d<120){
+            ctx.globalAlpha = (120-d)/300;
+            const grad = ctx.createLinearGradient(a.x,a.y,b.x,b.y);
+            grad.addColorStop(0, getComputedStyle(document.documentElement).getPropertyValue('--brand-1').trim());
+            grad.addColorStop(1, getComputedStyle(document.documentElement).getPropertyValue('--brand-2').trim());
+            ctx.strokeStyle = grad; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
+        }
+        requestAnimationFrame(step);
+      }
+      step();
+    })();
+
+    // =================== Data & State ===================
+    const BANK = [
+      { q:"Which language styles web pages?", o:["HTML","CSS","JavaScript","Python"], a:"CSS", c:'css', d:'easy' },
+      { q:"HTML stands for…", o:["HyperText Markup Language","HighText Machine Language","Hyper Tool Multi Language","Home Text Machine Language"], a:"HyperText Markup Language", c:'html', d:'easy' },
+      { q:"Single‑line comment in JavaScript?", o:["//","/* */","<!-- -->","#"], a:"//", c:'js', d:'easy' },
+      { q:"Which tag creates a hyperlink?", o:["<a>","<link>","<href>","<url>"], a:"<a>", c:'html', d:'easy' },
+      { q:"Which is a backend runtime?", o:["HTML","CSS","Node.js","React"], a:"Node.js", c:'js', d:'normal' },
+      { q:"Which CSS layout enables 2‑D rows/cols?", o:["Flexbox","Grid","Float","Position"], a:"Grid", c:'css', d:'normal' },
+      { q:"const does what?", o:["Creates block‑scoped constant","Creates global var","Function hoisting","Class only"], a:"Creates block‑scoped constant", c:'js', d:'normal' },
+      { q:"Semantic HTML examples?", o:["<div>, <span>","<section>, <article>","<b>, <i>","<br>, <hr>"], a:"<section>, <article>", c:'html', d:'normal' },
+      { q:"Pick valid ARIA attribute", o:["aria-hover","aria-live","aria-press","aria-spin"], a:"aria-live", c:'html', d:'hard' },
+      { q:"Which API for async in JS?", o:["fetch","localStorage","history","location"], a:"fetch", c:'js', d:'hard' }
+    ];
+
+    const els = {
+      root: document.documentElement,
+      themeToggle: document.getElementById('themeToggle'),
+      settingsBtn: document.getElementById('settingsBtn'),
+      settingsDialog: document.getElementById('settingsDialog'),
+      saveSettings: document.getElementById('saveSettings'),
+      cancelSettings: document.getElementById('cancelSettings'),
+      categorySelect: document.getElementById('categorySelect'),
+      difficultySelect: document.getElementById('difficultySelect'),
+      timeInput: document.getElementById('timeInput'),
+      soundToggle: document.getElementById('soundToggle'),
+
+      quizCard: document.getElementById('quizCard'),
+      question: document.getElementById('question'),
+      options: document.getElementById('options'),
+      nextBtn: document.getElementById('nextBtn'),
+      progressBar: document.getElementById('progressBar'),
+      qIndex: document.getElementById('qIndex'),
+      qTotal: document.getElementById('qTotal'),
+
+      scoreVal: document.getElementById('scoreVal'),
+      streakVal: document.getElementById('streakVal'),
+      bestVal: document.getElementById('bestVal'),
+      categoryVal: document.getElementById('categoryVal'),
+      difficultyPill: document.getElementById('difficultyPill'),
+      difficultyLabel: document.getElementById('difficultyLabel'),
+
+      restartBtn: document.getElementById('restartBtn'),
+      shuffleBtn: document.getElementById('shuffleBtn'),
+      reviewBtn: document.getElementById('reviewBtn'),
+
+      reviewDialog: document.getElementById('reviewDialog'),
+      reviewList: document.getElementById('reviewList'),
+      closeReview: document.getElementById('closeReview'),
+
+      timerBar: document.getElementById('timerBar'),
+      timeLeft: document.getElementById('timeLeft'),
+
+      toast: document.getElementById('toast')
+    };
+
+    const state = {
+      order: [], idx: 0, score: 0, streak: 0, answers: [],
+      settings: { category: 'all', difficulty: 'normal', perQuestion: 15, sound: true },
+      timer: { t: 0, h: null, circ: 2*Math.PI*20 }
+    };
+
+    // =================== Utils ===================
+    const shuffle = arr => arr.sort(() => Math.random() - .5);
+    const tone = (freq=880, dur=0.09, vol=0.02)=>{ try{ if(!state.settings.sound) return; const a = new (window.AudioContext||window.webkitAudioContext)(); const o=a.createOscillator(); const g=a.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(a.destination); g.gain.value=vol; o.start(); setTimeout(()=>{o.stop(); a.close();}, dur*1000); }catch{}}
+    const saveBest = v => localStorage.setItem('skillcraft-best', String(v));
+    const getBest = () => Number(localStorage.getItem('skillcraft-best')||0);
+    const showToast = (msg)=>{ els.toast.textContent = msg; els.toast.classList.add('show'); setTimeout(()=>els.toast.classList.remove('show'), 1800); };
+
+    function applyThemeStart(){
+      const saved = localStorage.getItem('skillcraft-theme');
+      if(saved) els.root.setAttribute('data-theme', saved);
+      else els.root.setAttribute('data-theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    }
+
+    // =================== Filtering ===================
+    function filteredBank(){
+      return BANK.filter(b => (state.settings.category==='all' || b.c===state.settings.category) &&
+                              (state.settings.difficulty==='all' || b.d===state.settings.difficulty));
+    }
+
+    // =================== Rendering ===================
+    function startQuiz(){
+      const pool = filteredBank();
+      state.order = shuffle([...Array(pool.length).keys()]);
+      state.idx = 0; state.score = 0; state.streak = 0; state.answers = []; els.qTotal.textContent = pool.length;
+      els.categoryVal.textContent = state.settings.category==='all' ? 'All' : state.settings.category.toUpperCase();
+      els.difficultyLabel.textContent = state.settings.difficulty.charAt(0).toUpperCase()+state.settings.difficulty.slice(1);
+      renderQuestion(); updateHud();
+      showToast('Quiz started');
+    }
+
+    function renderQuestion(){
+      const pool = filteredBank();
+      if(state.idx>=pool.length){ return finishQuiz(); }
+      const qi = state.order[state.idx];
+      const q = pool[qi];
+      els.question.textContent = q.q;
+      els.options.innerHTML = '';
+      shuffle([...q.o]).forEach(text => {
+        const b = document.createElement('button'); b.className='option'; b.type='button'; b.textContent = text;
+        b.setAttribute('aria-pressed','false');
+        b.addEventListener('click', ()=> selectOption(b, q.a));
+        b.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); b.click(); }});
+        els.options.appendChild(b);
+      });
+      els.qIndex.textContent = state.idx+1;
+      els.progressBar.style.width = (state.idx/filteredBank().length)*100 + '%';
+      els.nextBtn.disabled = true; els.nextBtn.textContent = state.idx === filteredBank().length-1 ? 'Finish' : 'Next';
+      startTimer();
+    }
+
+    function updateHud(){ els.scoreVal.textContent = state.score; els.streakVal.textContent = state.streak + '×'; els.bestVal.textContent = getBest(); }
+
+    // =================== Timer ===================
+    function startTimer(){
+      stopTimer();
+      state.timer.t = state.settings.perQuestion; drawTimer(); els.timeLeft.textContent = state.timer.t;
+      state.timer.h = setInterval(()=>{
+        state.timer.t--; drawTimer(); els.timeLeft.textContent = state.timer.t;
+        if(state.timer.t<=0){ stopTimer(); forceReveal(false); }
+      }, 1000);
+    }
+    function stopTimer(){ if(state.timer.h){ clearInterval(state.timer.h); state.timer.h=null; } }
+    function drawTimer(){
+      const frac = Math.max(state.timer.t,0)/state.settings.perQuestion; const off = (1-frac)*state.timer.circ; els.timerBar.setAttribute('stroke-dasharray', state.timer.circ.toFixed(1)); els.timerBar.setAttribute('stroke-dashoffset', off.toFixed(1)); }
+
+    // =================== Selection ===================
+    function selectOption(btn, correct){
+      if([...els.options.children].some(b=>b.disabled)) return; // prevent double
+      [...els.options.children].forEach(b=>b.disabled=true);
+      const chosen = btn.textContent; const right = [...els.options.children].find(b=>b.textContent===correct);
+      const ok = chosen===correct; if(ok){ btn.classList.add('correct'); state.score += 10 * (1+state.streak*0.2); state.streak++; tone(1046, .07); } else { btn.classList.add('wrong'); right&&right.classList.add('correct'); state.streak=0; tone(220, .07); }
+      state.answers.push({ q: filteredBank()[state.order[state.idx]].q, selected: chosen, correct });
+      els.nextBtn.disabled = false; stopTimer(); updateHud();
+    }
+
+    function forceReveal(countAsWrong){
+      const pool = filteredBank();
+      const q = pool[state.order[state.idx]];
+      const right = [...els.options.children].find(b=>b.textContent===q.a);
+      right && right.classList.add('correct');
+      [...els.options.children].forEach(b=>b.disabled=true);
+      if(countAsWrong){ state.streak=0; state.answers.push({ q: q.q, selected: '(timeout)', correct: q.a }); updateHud(); }
+      els.nextBtn.disabled=false;
+    }
+
+    function nextQuestion(){ state.idx++; renderQuestion(); }
+
+    function finishQuiz(){
+      stopTimer();
+      els.progressBar.style.width = '100%';
+      const best = Math.max(getBest(), state.score); if(best!==getBest()) saveBest(best);
+      updateHud();
+      buildReview();
+      burstConfetti();
+      showToast('Quiz complete! Great job.');
+    }
+
+    // =================== Review ===================
+    function buildReview(){
+      els.reviewList.innerHTML = '';
+      state.answers.forEach((a,i)=>{
+        const row = document.createElement('div');
+        row.className = 'stat';
+        row.innerHTML = `<div style="display:grid; gap:6px;">
+            <strong>${i+1}. ${a.q}</strong>
+            <div class="subtitle">Your: ${a.selected}</div>
+          </div>
+          <div><span class="pill">Correct: ${a.correct}</span></div>`;
+        els.reviewList.appendChild(row);
+      });
+      els.reviewDialog.showModal();
+    }
+
+    // =================== Confetti ===================
+    function burstConfetti(){
+      const host = document.body; const n = 90;
+      for(let i=0;i<n;i++){
+        const s = document.createElement('i');
+        s.style.position='fixed'; s.style.width='8px'; s.style.height='14px'; s.style.borderRadius='2px'; s.style.background = Math.random()>.5? `linear-gradient(135deg, var(--brand-2), var(--brand-1))` : `linear-gradient(135deg, var(--ok), var(--brand-2))`;
+        s.style.left = Math.random()*100 + 'vw'; s.style.top = '-20px'; s.style.opacity='0.95'; s.style.transform=`translateY(0) rotate(${Math.random()*360}deg)`;
+        s.style.transition='transform 2.4s linear, opacity .4s var(--ease)'; host.appendChild(s);
+        requestAnimationFrame(()=>{ s.style.transform = `translateY(110vh) rotate(${360+Math.random()*360}deg)`; });
+        setTimeout(()=>{ s.style.opacity='0'; s.remove(); }, 2600);
+      }
+    }
+
+    // =================== Events ===================
+    els.nextBtn.addEventListener('click', nextQuestion);
+    els.restartBtn.addEventListener('click', startQuiz);
+    els.shuffleBtn.addEventListener('click', ()=>{ state.order = shuffle(state.order); state.idx=0; renderQuestion(); showToast('Questions shuffled'); });
+    els.reviewBtn.addEventListener('click', buildReview);
+
+    els.themeToggle.addEventListener('click', ()=>{ const cur = els.root.getAttribute('data-theme'); const next = cur==='dark'?'light':'dark'; els.root.setAttribute('data-theme', next); localStorage.setItem('skillcraft-theme', next); });
+
+    els.settingsBtn.addEventListener('click', ()=> els.settingsDialog.showModal());
+    els.cancelSettings.addEventListener('click', ()=> els.settingsDialog.close());
+    els.saveSettings.addEventListener('click', ()=>{
+      state.settings.category = els.categorySelect.value;
+      state.settings.difficulty = els.difficultySelect.value;
+      state.settings.perQuestion = Math.max(5, Math.min(90, Number(els.timeInput.value)||15));
+      state.settings.sound = els.soundToggle.checked;
+      els.settingsDialog.close();
+      startQuiz();
+    });
+
+    els.closeReview.addEventListener('click', ()=> els.reviewDialog.close());
+
+    // Keyboard shortcuts
+    addEventListener('keydown', (e)=>{
+      if(e.key==='ArrowRight'){ e.preventDefault(); if(!els.nextBtn.disabled) nextQuestion(); }
+      if(e.key>='1' && e.key<='9'){ const i = Number(e.key)-1; const b = els.options.children[i]; b && b.click(); }
+    });
+
+    // =================== Init ===================
+    applyThemeStart();
+    els.bestVal.textContent = getBest();
+    // load settings from localStorage (optional future step)
+    startQuiz();
+  </script>
+</body>
+</html>
